@@ -13,18 +13,35 @@ load_dotenv(BASE_DIR / ".env")
 app = Flask(__name__, static_folder=str(BASE_DIR))
 
 
+def _allowed_origins() -> list[str]:
+    raw = os.getenv(
+        "CORS_ORIGIN",
+        "https://imanius-dot.github.io",
+    )
+    return [o.strip() for o in raw.split(",") if o.strip()]
+
+
+@app.after_request
+def add_cors_headers(response):
+    """Allow the GitHub Pages site to POST /subscribe (cross-origin)."""
+    origin = request.headers.get("Origin", "")
+    if origin and origin in _allowed_origins():
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        response.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+    return response
+
+
 @app.get("/")
 def home():
     return send_from_directory(BASE_DIR, "index.html")
 
 
-@app.get("/<path:path>")
-def static_files(path: str):
-    return send_from_directory(BASE_DIR, path)
-
-
-@app.post("/subscribe")
+@app.route("/subscribe", methods=["POST", "OPTIONS"])
 def subscribe():
+    if request.method == "OPTIONS":
+        return "", 204
+
     payload = request.get_json(silent=True) or {}
     email = str(payload.get("email", "")).strip()
 
@@ -60,6 +77,11 @@ def subscribe():
         return jsonify({"ok": True})
 
     return jsonify({"error": data.get("detail", "Mailchimp error.")}), 400
+
+
+@app.get("/<path:path>")
+def static_files(path: str):
+    return send_from_directory(BASE_DIR, path)
 
 
 if __name__ == "__main__":
