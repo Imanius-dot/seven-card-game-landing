@@ -8,7 +8,18 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request, send_from_directory
 
 BASE_DIR = Path(__file__).resolve().parent
-load_dotenv(BASE_DIR / ".env")
+
+# On Render, env vars come from the dashboard — do not load a local .env (can override with blanks).
+if not os.environ.get("RENDER_SERVICE_ID"):
+    try:
+        load_dotenv(BASE_DIR / ".env")
+    except OSError:
+        pass
+
+
+def _env_clean(key: str) -> str:
+    v = os.getenv(key, "") or ""
+    return v.strip().strip("\ufeff").strip()
 
 app = Flask(__name__, static_folder=str(BASE_DIR))
 
@@ -48,9 +59,9 @@ def subscribe():
     if not email:
         return jsonify({"error": "Email is required."}), 400
 
-    api_key = os.getenv("MAILCHIMP_API_KEY", "").strip()
-    audience_id = os.getenv("MAILCHIMP_AUDIENCE_ID", "").strip()
-    server_prefix = os.getenv("MAILCHIMP_SERVER_PREFIX", "").strip()
+    api_key = _env_clean("MAILCHIMP_API_KEY")
+    audience_id = _env_clean("MAILCHIMP_AUDIENCE_ID")
+    server_prefix = _env_clean("MAILCHIMP_SERVER_PREFIX")
 
     if not api_key or not audience_id or not server_prefix:
         return jsonify({"error": "Mailchimp env vars are missing."}), 500
@@ -77,6 +88,25 @@ def subscribe():
         return jsonify({"ok": True})
 
     return jsonify({"error": data.get("detail", "Mailchimp error.")}), 400
+
+
+@app.get("/health/mailchimp")
+def mailchimp_env_health():
+    """Shows whether env vars are visible to this running instance (no secrets exposed)."""
+    api_key = _env_clean("MAILCHIMP_API_KEY")
+    audience_id = _env_clean("MAILCHIMP_AUDIENCE_ID")
+    server_prefix = _env_clean("MAILCHIMP_SERVER_PREFIX")
+    return jsonify(
+        {
+            "on_render": bool(os.environ.get("RENDER_SERVICE_ID")),
+            "configured": bool(api_key and audience_id and server_prefix),
+            "value_lengths": {
+                "MAILCHIMP_API_KEY": len(api_key),
+                "MAILCHIMP_AUDIENCE_ID": len(audience_id),
+                "MAILCHIMP_SERVER_PREFIX": len(server_prefix),
+            },
+        }
+    )
 
 
 @app.get("/<path:path>")
