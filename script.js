@@ -25,7 +25,8 @@ if (subscribeForm && successMessage) {
     }
 
     try {
-      const response = await fetch("/subscribe", {
+      const subscribeUrl = window.SUBSCRIBE_URL || "/subscribe";
+      const response = await fetch(subscribeUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
