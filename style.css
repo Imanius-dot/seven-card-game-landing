@@ -234,7 +234,10 @@ h1 {
 
 .between-sections-image {
   display: block;
-  width: min(760px, 100%);
+  width: auto;
+  max-width: min(720px, 100%);
+  max-height: min(85vh, 920px);
+  height: auto;
   margin: 1.25rem auto 0.2rem;
   border-radius: 14px;
   border: 1px solid rgba(194, 154, 92, 0.3);
